@@ -78,8 +78,8 @@ export default function TodoList({ toggleEditor }) {
         {filteredTodos.length > 0 ? (
           filteredTodos.map((todo) => (
             <div
-              key={todo.id}
-              onClick={() => handleTodoClick(todo.id)}
+              key={todo._id}
+              onClick={() => handleTodoClick(todo._id)}
               className="bg-gray-100 p-4 rounded-lg shadow-md cursor-pointer hover:bg-gray-200 transition-all"
             >
               <h3 className="font-bold text-lg text-gray-800">{todo.title}</h3>

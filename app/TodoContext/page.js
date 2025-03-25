@@ -3,20 +3,18 @@ import { createContext, useContext, useReducer, useEffect } from 'react';
 
 const TodoContext = createContext();
 
-const generateId = () => crypto.randomUUID?.() || Math.random().toString(36).substr(2, 9);
-
 const todoReducer = (state, action) => {
   switch (action.type) {
-    case 'ADD_TODO':
-      return [...state, { id: generateId(), ...action.payload }];
-    case 'DELETE_TODO':
-      return state.filter((todo) => todo.id !== action.payload);
-    case 'UPDATE_TODO':
-      return state.map((todo) =>
-        todo.id === action.payload.id ? { ...todo, ...action.payload.data } : todo
-      );
     case 'SET_TODOS':
       return action.payload;
+    case 'ADD_TODO':
+      return [...state, action.payload];
+    case 'DELETE_TODO':
+      return state.filter((todo) => todo._id !== action.payload);
+    case 'UPDATE_TODO':
+      return state.map((todo) =>
+        todo._id === action.payload.id ? { ...todo, ...action.payload.data } : todo
+      );
     default:
       return state;
   }
@@ -25,39 +23,77 @@ const todoReducer = (state, action) => {
 export function TodoProvider({ children }) {
   const [todos, dispatch] = useReducer(todoReducer, []);
 
+  // ✅ Fetch Todos from API on Mount
   useEffect(() => {
-    try {
-      const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
-      dispatch({ type: 'SET_TODOS', payload: storedTodos });
-    } catch (error) {
-      console.error('Error loading todos:', error);
-    }
+    fetchTodos();
   }, []);
 
-  useEffect(() => {
+  const fetchTodos = async () => {
     try {
-      localStorage.setItem('todos', JSON.stringify(todos));
+      const response = await fetch('/api/tasks');
+      if (!response.ok) throw new Error('Failed to fetch tasks');
+      const data = await response.json();
+      dispatch({ type: 'SET_TODOS', payload: data });
     } catch (error) {
-      console.error('Error saving todos:', error);
+      console.error('Error fetching todos:', error);
     }
-  }, [todos]);
-
-  const addTodo = (newTodo) => {
-    dispatch({ type: 'ADD_TODO', payload: newTodo });
   };
 
-  const deleteTodo = (id) => {
-    dispatch({ type: 'DELETE_TODO', payload: id });
+  // ✅ Add a new task (POST request)
+  const addTodo = async (newTodo) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTodo),
+      });
+      if (!response.ok) throw new Error('Failed to add task');
+      const savedTodo = await response.json();
+      dispatch({ type: 'ADD_TODO', payload: savedTodo });
+    } catch (error) {
+      console.error('Error adding todo:', error);
+    }
   };
 
-  const updateTodo = (id, data) => {
-    dispatch({ type: 'UPDATE_TODO', payload: { id, data } });
+  // ✅ Delete a task (DELETE request)
+  const deleteTodo = async (id) => {
+    try {
+      console.log("Deleting Task with ID:", id); // Debugging
+  
+      const response = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete task');
+      }
+  
+      dispatch({ type: 'DELETE_TODO', payload: id });
+    } catch (error) {
+      console.error('Error deleting todo:', error.message);
+    }
+  };
+  
+
+  // ✅ Update a task (PUT request)
+  const updateTodo = async (id, data) => {
+    try {
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update task');
+      const updatedTodo = await response.json();
+      dispatch({ type: 'UPDATE_TODO', payload: { id, data: updatedTodo } });
+    } catch (error) {
+      console.error('Error updating todo:', error);
+    }
   };
 
-  // ✅ Now fetching from state instead of `localStorage`
   const getTodoById = (id) => {
-    return todos.find((todo) => todo.id === id) || null;
+    return todos.find((todo) => todo._id === id) || null;
   };
+  
 
   return (
     <TodoContext.Provider value={{ todos, addTodo, deleteTodo, updateTodo, getTodoById }}>
